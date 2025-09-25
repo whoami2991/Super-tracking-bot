@@ -7,7 +7,7 @@
       "telegram_group_id": -4784386267
     },
     {
-      "name": "Yusuf Osman",
+      "name": "[Abdurahman Zabihullah]",
       "unit_number": "207",
       "eld_url": "https://state-eld.us/shared-driver-link/62262cb4-240d-48eb-8d69-5cad421f0045",
       "telegram_group_id": -825206021
@@ -17,12 +17,6 @@
       "unit_number": "02",
       "eld_url": "https://state-eld.us/shared-driver-link/47c14f3a-b6b8-445c-85b0-00f94be03fbc",
       "telegram_group_id": -4776432121
-    },
-    {
-      "name": "Abdolah Janami",
-      "unit_number": "01",
-      "eld_url": "https://state-eld.us/shared-driver-link/ffb588c6-2c56-4444-95ac-9c28313bb84d",
-      "telegram_group_id": -1002428973630
     },
     {
       "name": "Zarif Umarov",
@@ -37,7 +31,7 @@
       "telegram_group_id": -4530494398
     },
     {
-      "name": "Omar Sultani",
+      "name": "[Zakir]",
       "unit_number": "005",
       "eld_url": "https://state-eld.us/shared-driver-link/3bcfb142-03f6-455e-9b5b-e0fd78805046",
       "telegram_group_id": -4882449653
@@ -55,22 +49,10 @@
       "telegram_group_id": -4569150689
     },
     {
-      "name": "Tobar Mohammad",
-      "unit_number": "700",
-      "eld_url": "https://state-eld.us/shared-driver-link/d83965e6-1bc1-407a-b40e-3716bec539ed",
-      "telegram_group_id": -4117118511
-    },
-    {
       "name": "Ismatullah Hotak",
       "unit_number": "03",
       "eld_url": "https://state-eld.us/shared-driver-link/30958b1e-aaf1-4f33-b052-29ce9506754f",
       "telegram_group_id": -601203994
-    },
-    {
-      "name": "Sediqi Haroon",
-      "unit_number": "07",
-      "eld_url": "https://state-eld.us/shared-driver-link/a7d76-2445-4f02-a228-7494265e6aca",
-      "telegram_group_id": null
     },
     {
       "name": "Mohammad Zahir",
@@ -85,7 +67,7 @@
       "telegram_group_id": -4069967719
     },
     {
-      "name": "Feda Hakimi",
+      "name": "[Sediqi Haroon]",
       "unit_number": "786",
       "eld_url": "https://state-eld.us/shared-driver-link/77af5afb-426e-410b-ab3b-0e6f7276b728",
       "telegram_group_id": -4822961982
@@ -94,13 +76,31 @@
       "name": "Nasratullah Dost",
       "unit_number": "9803",
       "eld_url": "https://state-eld.us/shared-driver-link/4fb6c34e-0994-4eca-99a7-63980e449b39",
-      "telegram_group_id": 7447443766
+      "telegram_group_id": null
     },
     {
-      "name": "Muhammad Kazim",
+      "name": "Mohammad Kazim",
       "unit_number": "4964",
-      "eld_url": "https://state-eld.us/shared-driver-link/16eefc6f-4aa7-44d0-ae29-b0ddcbcc6b9e",
+      "eld_url": "https://state-eld.us/shared-driver-link/145ef60f-a5d3-4723-80a2-427deba51a19",
       "telegram_group_id": -4816007518
+    },
+    {
+      "name": "Ullah Safih",
+      "unit_number": "04",
+      "eld_url": "https://state-eld.us/shared-driver-link/dc97c0bc-75f1-4429-9ac7-051b2d0fddf2",
+      "telegram_group_id": null
+    },
+    {
+      "name": "Timothy Luke",
+      "unit_number": "23",
+      "eld_url": "https://state-eld.us/shared-driver-link/c96c200a-37df-4e3c-8ecf-9e60a5fa7836",
+      "telegram_group_id": null
+    },
+    {
+      "name": "Anwari Khadim",
+      "unit_number": "3917",
+      "eld_url": "https://state-eld.us/shared-driver-link/5cc5aebf-02e2-48ad-8dc7-5c428027d233",
+      "telegram_group_id": 1120348549
     }
   ]
 }

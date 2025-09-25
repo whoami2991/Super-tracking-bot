@@ -3,7 +3,7 @@ import asyncio
 import logging
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ConversationHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -32,9 +32,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-
-# Conversation states for driver management
-ADD_DRIVER_NAME, ADD_DRIVER_UNIT, ADD_DRIVER_URL = range(3)
 
 class LocationBot:
     def __init__(self):
@@ -560,148 +557,6 @@ class LocationBot:
             })
         return drivers
     
-    def add_new_driver(self, name, unit_number, eld_url):
-        """Add a new driver to the configuration"""
-        try:
-            # Check if driver with this name already exists
-            for driver in self.drivers_config.get('drivers', []):
-                if driver['name'].lower() == name.lower():
-                    return False, f"Driver '{name}' already exists"
-            
-            # Check if unit number already exists
-            for driver in self.drivers_config.get('drivers', []):
-                if driver['unit_number'].lower() == unit_number.lower():
-                    return False, f"Unit number '{unit_number}' is already taken"
-            
-            # Validate ELD URL format
-            if not eld_url.startswith('https://state-eld.us/shared-driver-link/'):
-                return False, "Invalid ELD URL format. Must start with 'https://state-eld.us/shared-driver-link/'"
-            
-            # Add new driver
-            new_driver = {
-                'name': name,
-                'unit_number': unit_number,
-                'eld_url': eld_url,
-                'telegram_group_id': None
-            }
-            
-            if 'drivers' not in self.drivers_config:
-                self.drivers_config['drivers'] = []
-            
-            self.drivers_config['drivers'].append(new_driver)
-            
-            # Save configuration
-            if self.save_drivers_config():
-                logger.info(f"✅ Added new driver: {name} (Unit: {unit_number})")
-                return True, f"Driver '{name}' (Unit: {unit_number}) added successfully"
-            else:
-                # Remove from memory if save failed
-                self.drivers_config['drivers'].pop()
-                return False, "Failed to save configuration"
-                
-        except Exception as e:
-            logger.error(f"Error adding driver: {e}")
-            return False, f"Error adding driver: {str(e)}"
-    
-    def remove_driver(self, driver_name):
-        """Remove a driver from the configuration"""
-        try:
-            # Find the driver
-            driver_index = None
-            driver_to_remove = None
-            for i, driver in enumerate(self.drivers_config.get('drivers', [])):
-                if driver['name'].lower() == driver_name.lower():
-                    driver_index = i
-                    driver_to_remove = driver
-                    break
-            
-            if driver_index is None:
-                return False, f"Driver '{driver_name}' not found"
-            
-            # Remove from chat mapping if assigned
-            if driver_to_remove.get('telegram_group_id'):
-                chat_id = str(driver_to_remove['telegram_group_id'])
-                if chat_id in self.chat_to_driver:
-                    del self.chat_to_driver[chat_id]
-                    logger.info(f"Removed driver mapping for chat {chat_id}")
-            
-            # Remove from configuration
-            removed_driver = self.drivers_config['drivers'].pop(driver_index)
-            
-            # Save configuration
-            if self.save_drivers_config():
-                logger.info(f"✅ Removed driver: {removed_driver['name']} (Unit: {removed_driver['unit_number']})")
-                return True, f"Driver '{removed_driver['name']}' removed successfully"
-            else:
-                # Restore if save failed
-                self.drivers_config['drivers'].insert(driver_index, removed_driver)
-                return False, "Failed to save configuration"
-                
-        except Exception as e:
-            logger.error(f"Error removing driver: {e}")
-            return False, f"Error removing driver: {str(e)}"
-    
-    def edit_driver(self, driver_name, field, new_value):
-        """Edit a driver's information"""
-        try:
-            # Find the driver
-            driver = None
-            for d in self.drivers_config.get('drivers', []):
-                if d['name'].lower() == driver_name.lower():
-                    driver = d
-                    break
-            
-            if not driver:
-                return False, f"Driver '{driver_name}' not found"
-            
-            old_value = driver.get(field, 'N/A')
-            
-            # Validate field and value
-            if field == 'name':
-                # Check if new name conflicts with existing drivers
-                for d in self.drivers_config.get('drivers', []):
-                    if d != driver and d['name'].lower() == new_value.lower():
-                        return False, f"Driver name '{new_value}' already exists"
-                driver['name'] = new_value
-            elif field == 'unit_number':
-                # Check if new unit number conflicts
-                for d in self.drivers_config.get('drivers', []):
-                    if d != driver and d['unit_number'].lower() == new_value.lower():
-                        return False, f"Unit number '{new_value}' is already taken"
-                driver['unit_number'] = new_value
-            elif field == 'eld_url':
-                if not new_value.startswith('https://state-eld.us/shared-driver-link/'):
-                    return False, "Invalid ELD URL format. Must start with 'https://state-eld.us/shared-driver-link/'"
-                driver['eld_url'] = new_value
-            else:
-                return False, f"Invalid field '{field}'. Valid fields: name, unit_number, eld_url"
-            
-            # Update chat mapping if driver name changed
-            if field == 'name' and driver.get('telegram_group_id'):
-                chat_id = str(driver['telegram_group_id'])
-                if chat_id in self.chat_to_driver:
-                    self.chat_to_driver[chat_id] = driver
-            
-            # Save configuration
-            if self.save_drivers_config():
-                logger.info(f"✅ Updated driver {driver_name}: {field} changed from '{old_value}' to '{new_value}'")
-                return True, f"Driver {field} updated from '{old_value}' to '{new_value}'"
-            else:
-                # Restore old value if save failed
-                driver[field] = old_value
-                return False, "Failed to save configuration"
-                
-        except Exception as e:
-            logger.error(f"Error editing driver: {e}")
-            return False, f"Error editing driver: {str(e)}"
-    
-    def get_driver_info(self, driver_name):
-        """Get detailed information about a driver"""
-        for driver in self.drivers_config.get('drivers', []):
-            if driver['name'].lower() == driver_name.lower():
-                return driver
-        return None
-    
     def get_cached_data(self, cache_key):
         """Get cached data if it's still valid"""
         with self.cache_lock:
@@ -792,29 +647,46 @@ class LocationBot:
     def extract_driver_data_fast(self, eld_url):
         """Fast extraction with minimal Chrome options"""
         try:
-            # Simple Chrome options
+            # Ultra-fast Chrome options
             chrome_options = Options()
             chrome_options.add_argument('--headless')
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-logging')
+            chrome_options.add_argument('--disable-images')
+            chrome_options.add_argument('--disable-plugins')
             chrome_options.add_argument('--disable-extensions')
-            chrome_options.add_argument('--window-size=1280,720')
+            chrome_options.add_argument('--disable-web-security')
+            # DON'T disable JavaScript - this React app needs it!
+            # chrome_options.add_argument('--disable-javascript')
+            # chrome_options.add_argument('--disable-css')
+            chrome_options.add_argument('--disable-features=TranslateUI')
+            chrome_options.add_argument('--disable-logging')
+            chrome_options.add_argument('--disable-default-apps')
+            chrome_options.add_argument('--no-first-run')
+            chrome_options.add_argument('--no-default-browser-check')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-ipc-flooding-protection')
+            chrome_options.add_argument('--window-size=1024,768')
+            chrome_options.add_argument('--aggressive-cache-discard')
+            chrome_options.add_argument('--memory-pressure-off')
+            chrome_options.add_argument('--max_old_space_size=4096')
             
-            # Initialize driver with simple configuration
+            # Initialize driver
             driver = webdriver.Chrome(options=chrome_options)
-            driver.set_page_load_timeout(15)
-            driver.implicitly_wait(3)
+            driver.set_page_load_timeout(10)  # Increase timeout for reliability
+            driver.implicitly_wait(3)  # Add implicit wait
             
             try:
                 # Navigate to ELD page
                 driver.get(eld_url)
                 
-                # Wait for React app to load
-                time.sleep(5)
+                # Wait for React app to load content
+                time.sleep(5)  # Give React app more time to load
                 
-                # Use WebDriverWait to ensure content is loaded
+                # Use WebDriverWait for additional safety
                 try:
                     WebDriverWait(driver, 10).until(
                         lambda d: d.execute_script("return document.body.innerText.includes('Name')")
@@ -823,7 +695,7 @@ class LocationBot:
                     # Additional wait if needed
                     time.sleep(2)
                 
-                # Get page text
+                # Get page text immediately
                 page_text = driver.execute_script("return document.body.innerText;")
                 
                 # Initialize driver data
@@ -904,6 +776,8 @@ class LocationBot:
                 
                 # Log the extracted data for debugging
                 logger.info(f"Extracted driver data: {driver_data}")
+                
+                # Location data extracted successfully
                 
                 return driver_data
                 
@@ -1260,7 +1134,7 @@ Welcome! This bot helps you track driver locations and calculate distances.
         help_message = """
 🚛 **Driver Location Tracking Bot Help**
 
-**Basic Commands:**
+**Commands:**
 • `/location` - Fetch current driver location, speed, and name
 • `/distance [address]` - Calculate distance to destination + enable auto-updates
 • `/drivers` - List all available drivers
@@ -1270,12 +1144,6 @@ Welcome! This bot helps you track driver locations and calculate distances.
 • `/stop` - Stop automatic updates
 • `/start` - Welcome message
 • `/help` - Show this help
-
-**Driver Management:**
-• `/adddriver` - Add a new driver to the system
-• `/editdriver [name]` - Edit driver information
-• `/removedriver [name]` - Remove a driver from the system
-• `/driverinfo [name]` - Show detailed driver information
 
 **Setup:**
 🔧 **First Time Setup:**
@@ -1441,7 +1309,7 @@ Welcome! This bot helps you track driver locations and calculate distances.
                     "Please assign a driver first:\n"
                     "1. Use `/drivers` to see available drivers\n"
                     "2. Use `/setdriver [driver_name]` to assign a driver\n\n"
-                    "**Example:** `/setdriver Driver Name`",
+                    "**Example:** `/setdriver Khan Bismillah`",
                     parse_mode='Markdown'
                 )
                 return
@@ -1518,7 +1386,7 @@ ETA: {distance_data['duration_text']}"""
             logger.error(f"Error in distance_command: {e}")
             await status_message.edit_text("❌ Error calculating distance. Please try again later.")
     async def handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle text messages for driver management and address calculation"""
+        """Handle text messages as potential addresses for distance calculation"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         
@@ -1527,83 +1395,6 @@ ETA: {distance_data['duration_text']}"""
         
         text = update.message.text.strip()
         logger.info(f"Text message received: {text}")
-        
-        # Handle driver removal confirmation
-        if 'driver_to_remove' in context.user_data:
-            if text.upper() == 'YES':
-                driver_name = context.user_data['driver_to_remove']
-                success, message = self.remove_driver(driver_name)
-                
-                if success:
-                    await update.message.reply_text(
-                        f"✅ **Driver Removed Successfully!**\n\n"
-                        f"{message}\n\n"
-                        f"💡 Use `/drivers` to see remaining drivers."
-                    )
-                else:
-                    await update.message.reply_text(
-                        f"❌ **Failed to remove driver!**\n\n"
-                        f"Error: {message}"
-                    )
-            else:
-                await update.message.reply_text("❌ Driver removal cancelled.")
-            
-            # Clear the context
-            del context.user_data['driver_to_remove']
-            return
-        
-        # Handle driver editing
-        if 'driver_to_edit' in context.user_data:
-            driver_name = context.user_data['driver_to_edit']
-            
-            # Parse edit command: "field value"
-            parts = text.split(' ', 1)
-            if len(parts) < 2:
-                await update.message.reply_text(
-                    "❌ Invalid format!\n\n"
-                    "Please use: `field value`\n\n"
-                    "**Examples:**\n"
-                    "• `name John Smith`\n"
-                    "• `unit 777`\n"
-                    "• `url https://state-eld.us/shared-driver-link/xxxxx`"
-                )
-                return
-            
-            field, value = parts[0].lower(), parts[1]
-            
-            # Validate field
-            if field not in ['name', 'unit', 'url']:
-                await update.message.reply_text(
-                    "❌ Invalid field!\n\n"
-                    "Valid fields: **name**, **unit**, **url**\n\n"
-                    "**Examples:**\n"
-                    "• `name John Smith`\n"
-                    "• `unit 777`\n"
-                    "• `url https://state-eld.us/shared-driver-link/xxxxx`"
-                )
-                return
-            
-            # Map field names
-            field_map = {'name': 'name', 'unit': 'unit_number', 'url': 'eld_url'}
-            actual_field = field_map[field]
-            
-            success, message = self.edit_driver(driver_name, actual_field, value)
-            
-            if success:
-                await update.message.reply_text(
-                    f"✅ **Driver Updated Successfully!**\n\n"
-                    f"{message}\n\n"
-                    f"💡 Use `/driverinfo {driver_name}` to see updated info."
-                )
-            else:
-                await update.message.reply_text(
-                    f"❌ **Failed to update driver!**\n\n"
-                    f"Error: {message}"
-                )
-            
-            # Clear the context
-            del context.user_data['driver_to_edit']
-            return
         
         # Check if it looks like an address (contains numbers and letters)
         if re.search(r'\d+.*[a-zA-Z]|[a-zA-Z].*\d+', text) and len(text) > 10:
@@ -1777,305 +1568,6 @@ ETA: {distance_data['duration_text']}"""
             response += f"💡 **Tip:** Use `/setdriver [driver_name]` to assign a driver to this group"
         
         await update.message.reply_text(response, parse_mode='Markdown')
-    
-    # Driver Management Commands
-    
-    async def adddriver_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Start the add driver conversation"""
-        user_id = update.effective_user.id
-        
-        if not self.is_authorized(user_id):
-            await update.message.reply_text("❌ You are not authorized to use this bot.")
-            return ConversationHandler.END
-        
-        await update.message.reply_text(
-            "🚛 **Add New Driver**\n\n"
-            "Let's add a new driver to the system.\n\n"
-            "**Step 1/3:** Please enter the driver's full name:\n\n"
-            "*Example: John Smith*\n\n"
-            "Send /cancel to cancel this operation.",
-            parse_mode='Markdown'
-        )
-        
-        return ADD_DRIVER_NAME
-    
-    async def adddriver_name(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle driver name input"""
-        name = update.message.text.strip()
-        
-        if not name or len(name) < 2:
-            await update.message.reply_text(
-                "❌ Please enter a valid driver name (at least 2 characters).\n\n"
-                "Try again or send /cancel to cancel."
-            )
-            return ADD_DRIVER_NAME
-        
-        # Check if driver already exists
-        for driver in self.drivers_config.get('drivers', []):
-            if driver['name'].lower() == name.lower():
-                await update.message.reply_text(
-                    f"❌ Driver '{name}' already exists!\n\n"
-                    "Please choose a different name or send /cancel to cancel."
-                )
-                return ADD_DRIVER_NAME
-        
-        # Store the name in context
-        context.user_data['new_driver_name'] = name
-        
-        await update.message.reply_text(
-            f"✅ **Driver Name:** {name}\n\n"
-            "**Step 2/3:** Please enter the unit/truck number:\n\n"
-            "*Example: 001, 777, K1995*\n\n"
-            "Send /cancel to cancel this operation.",
-            parse_mode='Markdown'
-        )
-        
-        return ADD_DRIVER_UNIT
-    
-    async def adddriver_unit(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle unit number input"""
-        unit_number = update.message.text.strip()
-        
-        if not unit_number or len(unit_number) < 1:
-            await update.message.reply_text(
-                "❌ Please enter a valid unit/truck number.\n\n"
-                "Try again or send /cancel to cancel."
-            )
-            return ADD_DRIVER_UNIT
-        
-        # Check if unit number already exists
-        for driver in self.drivers_config.get('drivers', []):
-            if driver['unit_number'].lower() == unit_number.lower():
-                await update.message.reply_text(
-                    f"❌ Unit number '{unit_number}' is already taken!\n\n"
-                    "Please choose a different unit number or send /cancel to cancel."
-                )
-                return ADD_DRIVER_UNIT
-        
-        # Store the unit number in context
-        context.user_data['new_driver_unit'] = unit_number
-        
-        await update.message.reply_text(
-            f"✅ **Driver Name:** {context.user_data['new_driver_name']}\n"
-            f"✅ **Unit Number:** {unit_number}\n\n"
-            "**Step 3/3:** Please enter the ELD shared driver link URL:\n\n"
-            "*The URL should look like:*\n"
-            "`https://state-eld.us/shared-driver-link/xxxxx-xxxxx-xxxxx`\n\n"
-            "Send /cancel to cancel this operation.",
-            parse_mode='Markdown'
-        )
-        
-        return ADD_DRIVER_URL
-    
-    async def adddriver_url(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle ELD URL input and complete driver creation"""
-        eld_url = update.message.text.strip()
-        
-        if not eld_url.startswith('https://state-eld.us/shared-driver-link/'):
-            await update.message.reply_text(
-                "❌ Invalid ELD URL format!\n\n"
-                "The URL must start with:\n"
-                "`https://state-eld.us/shared-driver-link/`\n\n"
-                "Please try again or send /cancel to cancel.",
-                parse_mode='Markdown'
-            )
-            return ADD_DRIVER_URL
-        
-        # Get data from context
-        name = context.user_data['new_driver_name']
-        unit_number = context.user_data['new_driver_unit']
-        
-        # Add the driver
-        success, message = self.add_new_driver(name, unit_number, eld_url)
-        
-        if success:
-            await update.message.reply_text(
-                f"🎉 **Driver Added Successfully!**\n\n"
-                f"**Name:** {name}\n"
-                f"**Unit:** {unit_number}\n"
-                f"**Status:** Ready for assignment\n\n"
-                f"✅ {message}\n\n"
-                f"💡 **Next Steps:**\n"
-                f"• Use `/setdriver {name}` to assign this driver to a group\n"
-                f"• Use `/drivers` to see all drivers",
-                parse_mode='Markdown'
-            )
-        else:
-            await update.message.reply_text(
-                f"❌ **Failed to add driver!**\n\n"
-                f"Error: {message}\n\n"
-                f"Please try again with `/adddriver`"
-            )
-        
-        # Clear context data
-        context.user_data.clear()
-        
-        return ConversationHandler.END
-    
-    async def cancel_conversation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Cancel any ongoing conversation"""
-        context.user_data.clear()
-        await update.message.reply_text(
-            "❌ **Operation cancelled.**\n\n"
-            "You can start over anytime with the appropriate command."
-        )
-        return ConversationHandler.END
-    
-    async def removedriver_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /removedriver command"""
-        user_id = update.effective_user.id
-        
-        if not self.is_authorized(user_id):
-            await update.message.reply_text("❌ You are not authorized to use this bot.")
-            return
-        
-        if not context.args:
-            await update.message.reply_text(
-                "❌ Please provide a driver name to remove.\n\n"
-                "**Usage:** `/removedriver [driver_name]`\n\n"
-                "**Example:** `/removedriver John Smith`\n\n"
-                "💡 **Tip:** Use `/drivers` to see all available drivers.",
-                parse_mode='Markdown'
-            )
-            return
-        
-        driver_name = ' '.join(context.args)
-        
-        # Get driver info first
-        driver_info = self.get_driver_info(driver_name)
-        if not driver_info:
-            await update.message.reply_text(
-                f"❌ Driver '{driver_name}' not found!\n\n"
-                "💡 **Tip:** Use `/drivers` to see all available drivers."
-            )
-            return
-        
-        # Show confirmation
-        assigned_status = "🔗 Assigned to a group" if driver_info.get('telegram_group_id') else "⚪ Not assigned"
-        
-        await update.message.reply_text(
-            f"⚠️ **Confirm Driver Removal**\n\n"
-            f"**Name:** {driver_info['name']}\n"
-            f"**Unit:** {driver_info['unit_number']}\n"
-            f"**Status:** {assigned_status}\n\n"
-            f"❗ This action cannot be undone!\n\n"
-            f"Reply with **YES** to confirm removal, or anything else to cancel."
-        )
-        
-        # Store driver name for confirmation
-        context.user_data['driver_to_remove'] = driver_name
-    
-    async def driverinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /driverinfo command"""
-        user_id = update.effective_user.id
-        
-        if not self.is_authorized(user_id):
-            await update.message.reply_text("❌ You are not authorized to use this bot.")
-            return
-        
-        if not context.args:
-            await update.message.reply_text(
-                "📋 Please provide a driver name to get information.\n\n"
-                "**Usage:** `/driverinfo [driver_name]`\n\n"
-                "**Example:** `/driverinfo John Smith`\n\n"
-                "💡 **Tip:** Use `/drivers` to see all available drivers.",
-                parse_mode='Markdown'
-            )
-            return
-        
-        driver_name = ' '.join(context.args)
-        driver_info = self.get_driver_info(driver_name)
-        
-        if not driver_info:
-            await update.message.reply_text(
-                f"❌ Driver '{driver_name}' not found!\n\n"
-                "💡 **Tip:** Use `/drivers` to see all available drivers."
-            )
-            return
-        
-        # Format driver information
-        assigned_group = driver_info.get('telegram_group_id')
-        if assigned_group:
-            assignment_status = f"🔗 Assigned to group {assigned_group}"
-        else:
-            assignment_status = "⚪ Not assigned to any group"
-        
-        # Mask the ELD URL for security (show only the last part)
-        eld_url = driver_info['eld_url']
-        if '/' in eld_url:
-            masked_url = eld_url.split('/')[-1][:8] + "..." + eld_url.split('/')[-1][-8:]
-        else:
-            masked_url = eld_url[:8] + "..." + eld_url[-8:] if len(eld_url) > 16 else eld_url
-        
-        response = f"""📋 **Driver Information**
-
-**Name:** {driver_info['name']}
-**Unit Number:** {driver_info['unit_number']}
-**ELD Link:** {masked_url}
-**Status:** {assignment_status}
-
-**Available Actions:**
-• `/setdriver {driver_info['name']}` - Assign to this group
-• `/editdriver {driver_info['name']}` - Edit driver info
-• `/removedriver {driver_info['name']}` - Remove driver"""
-        
-        await update.message.reply_text(response, parse_mode='Markdown')
-    
-    async def editdriver_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /editdriver command"""
-        user_id = update.effective_user.id
-        
-        if not self.is_authorized(user_id):
-            await update.message.reply_text("❌ You are not authorized to use this bot.")
-            return
-        
-        if not context.args:
-            await update.message.reply_text(
-                "🛠️ **Edit Driver**\n\n"
-                "Please provide a driver name to edit.\n\n"
-                "**Usage:** `/editdriver [driver_name]`\n\n"
-                "**Example:** `/editdriver John Smith`\n\n"
-                "💡 **Tip:** Use `/drivers` to see all available drivers.",
-                parse_mode='Markdown'
-            )
-            return
-        
-        driver_name = ' '.join(context.args)
-        driver_info = self.get_driver_info(driver_name)
-        
-        if not driver_info:
-            await update.message.reply_text(
-                f"❌ Driver '{driver_name}' not found!\n\n"
-                "💡 **Tip:** Use `/drivers` to see all available drivers."
-            )
-            return
-        
-        # Show current driver info and edit options
-        assigned_status = "🔗 Assigned" if driver_info.get('telegram_group_id') else "⚪ Not assigned"
-        
-        response = f"""🛠️ **Edit Driver: {driver_info['name']}**
-
-**Current Information:**
-• **Name:** {driver_info['name']}
-• **Unit:** {driver_info['unit_number']}
-• **Status:** {assigned_status}
-
-**What would you like to edit?**
-1️⃣ **Name** - Reply with: `name [new_name]`
-2️⃣ **Unit Number** - Reply with: `unit [new_unit]`
-3️⃣ **ELD URL** - Reply with: `url [new_url]`
-
-**Examples:**
-• `name Mike Johnson`
-• `unit 555`
-• `url https://state-eld.us/shared-driver-link/xxxxx`
-
-Reply with your choice, or send /cancel to cancel."""
-        
-        await update.message.reply_text(response, parse_mode='Markdown')
-        
-        # Store driver name for editing
-        context.user_data['driver_to_edit'] = driver_name
     
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle unknown commands"""
@@ -2280,17 +1772,6 @@ ETA: {distance_data['duration_text']}"""
             # Store application reference for auto-updates
             self.application = application
             
-            # Add conversation handler for adding drivers
-            add_driver_handler = ConversationHandler(
-                entry_points=[CommandHandler('adddriver', self.adddriver_start)],
-                states={
-                    ADD_DRIVER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.adddriver_name)],
-                    ADD_DRIVER_UNIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.adddriver_unit)],
-                    ADD_DRIVER_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.adddriver_url)],
-                },
-                fallbacks=[CommandHandler('cancel', self.cancel_conversation)]
-            )
-            
             # Add handlers
             application.add_handler(CommandHandler("start", self.start_command))
             application.add_handler(CommandHandler("help", self.help_command))
@@ -2301,12 +1782,6 @@ ETA: {distance_data['duration_text']}"""
             application.add_handler(CommandHandler("groupinfo", self.groupinfo_command))
             application.add_handler(CommandHandler("setdestination", self.set_destination_command))
             application.add_handler(CommandHandler("stop", self.clear_destination_command))
-            
-            # Add driver management handlers
-            application.add_handler(add_driver_handler)
-            application.add_handler(CommandHandler("editdriver", self.editdriver_command))
-            application.add_handler(CommandHandler("removedriver", self.removedriver_command))
-            application.add_handler(CommandHandler("driverinfo", self.driverinfo_command))
             
             # Add text message handler for address detection
             application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message))
